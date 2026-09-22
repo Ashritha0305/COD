@@ -1,0 +1,50 @@
+# ============================================================
+# wildlife-COD — requirements.txt
+# ============================================================
+#
+# IMPORTANT — PyTorch Installation:
+# ----------------------------------
+# PyTorch must be installed SEPARATELY before installing this file
+# because the correct package index depends on your CUDA version.
+#
+# For CUDA 12.1 (most current NVIDIA GPUs):
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+#
+# For CUDA 11.8:
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+#
+# For CPU-only (no GPU):
+#   pip install torch torchvision torchaudio
+#
+# After installing PyTorch, install the rest:
+#   pip install -r requirements.txt
+# ============================================================
+
+# Core deep learning
+# torch        — installed separately (see instructions above)
+# torchvision  — installed separately (see instructions above)
+
+# Computer vision
+opencv-python>=4.7.0
+
+# Numerical computing
+numpy>=1.24.0
+
+# Image I/O and processing
+Pillow>=9.4.0
+
+# Visualisation
+matplotlib>=3.7.0
+
+# Progress bars (training loops)
+tqdm>=4.65.0
+
+# Evaluation metrics (precision, recall, etc.)
+scikit-learn>=1.2.0
+
+# TensorBoard — optional, for training curve visualisation
+tensorboard>=2.13.0
+
+# Utilities
+PyYAML>=6.0       # YAML config support if needed later
+colorama>=0.4.6   # Coloured terminal output (verify_environment.py)

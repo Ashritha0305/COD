@@ -1,0 +1,104 @@
+# wildlife-COD — .gitignore
+
+# ============================================================
+# Python
+# ============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+lib/
+lib64/
+wheels/
+*.whl
+
+# ============================================================
+# Virtual Environment
+# ============================================================
+venv/
+env/
+.venv/
+.env/
+ENV/
+
+# ============================================================
+# Dataset (never commit raw data to git)
+# ============================================================
+dataset/
+data/CamoVid60K/
+data/train/*
+!data/train/.gitkeep
+data/val/*
+!data/val/.gitkeep
+data/test/*
+!data/test/.gitkeep
+data/*.mp4
+data/*.avi
+data/*.mkv
+data/*.jpg
+data/*.jpeg
+data/*.png
+
+# ============================================================
+# Model Checkpoints (can be large — store/share separately)
+# ============================================================
+checkpoints/*
+!checkpoints/.gitkeep
+
+# ============================================================
+# Outputs (generated at runtime — not source files)
+# ============================================================
+outputs/*/*
+!outputs/*/.gitkeep
+outputs/*.jpg
+outputs/*.png
+outputs/*.csv
+outputs/*.json
+outputs/*.txt
+
+# ============================================================
+# TensorBoard Logs
+# ============================================================
+runs/
+tb_logs/
+
+# ============================================================
+# Jupyter Notebooks checkpoints
+# ============================================================
+.ipynb_checkpoints/
+
+# ============================================================
+# OS / Editor
+# ============================================================
+.DS_Store
+Thumbs.db
+Desktop.lnk
+*.lnk
+New folder/
+*.swp
+*.swo
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# ============================================================
+# Environment / Secrets
+# ============================================================
+.env
+*.env
+
+# ============================================================
+# Miscellaneous
+# ============================================================
+*.log
+*.tmp
+*.bak
