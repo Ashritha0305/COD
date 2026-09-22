@@ -332,6 +332,7 @@ class UNet(nn.Module):
         out_channels:  int   = config.UNET_OUT_CHANNELS,
         init_features: int   = config.UNET_INIT_FEATURES,
         dropout_p:     float = config.DROPOUT_RATE,
+        use_aspp:      bool  = False,
     ) -> None:
         super().__init__()
         f = init_features  # short alias (default = 32)
@@ -342,8 +343,11 @@ class UNet(nn.Module):
         self.enc3 = _EncoderBlock(f * 2,       f * 4, dropout_p=dropout_p)  # 2F  -> 4F
         self.enc4 = _EncoderBlock(f * 4,       f * 8, dropout_p=dropout_p)  # 4F  -> 8F
 
-        # ---- Bottleneck (ASPP multi-scale context) ----
-        self.bottleneck = _ASPP(f * 8, f * 16)         # 8F  -> 16F
+        # ---- Bottleneck (DoubleConv by default for trained weights, or ASPP) ----
+        if use_aspp:
+            self.bottleneck = _ASPP(f * 8, f * 16)         # 8F  -> 16F
+        else:
+            self.bottleneck = _DoubleConv(f * 8, f * 16, dropout_p=dropout_p)  # 8F -> 16F
 
         # ---- CBAM Attention (after bottleneck, before decoder) ----
         # DIAGNOSIS FIX (RC-6): lightweight attention at the 16x16 feature map.

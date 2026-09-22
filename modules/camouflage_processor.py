@@ -296,11 +296,14 @@ class CamouflageProcessor:
 
         # Resize seg map back to original frame resolution
         # Note: OpenCV 5 requires explicit dtype handling for single-channel float maps.
-        seg_map = cv2.resize(
+        seg_map_raw = cv2.resize(
             seg_map_unet_res.astype(np.float64),
             (orig_w, orig_h),
             interpolation=cv2.INTER_LINEAR,
         ).astype(np.float32)   # (orig_H, orig_W)
+
+        # Morphological cleanup & noise suppression (preserves real animal boundaries)
+        seg_map = self._post_process_mask(seg_map_raw)
 
         # ---- Step 2: Optical Flow (VIDEO MODE ONLY) ----
         # In IMAGE mode, skip flow entirely -- there is no previous frame to compare
@@ -440,6 +443,49 @@ class CamouflageProcessor:
         prob    = torch.sigmoid(logits)                 # (1, 1, H, W)  [0, 1]
         seg_map = prob.squeeze().float().cpu().numpy()  # (H, W)  float32  [0, 1]
         return seg_map
+
+    def _post_process_mask(
+        self,
+        seg_map: np.ndarray,
+        threshold: float = 0.35,
+        min_area: int = 250,
+        morph_ksize: int = 7,
+    ) -> np.ndarray:
+        """
+        Morphological post-processing for U-Net probability map:
+        1. Suppresses low-level background noise (< threshold)
+        2. Morphological opening (removes tiny isolated background noise blobs)
+        3. Morphological closing (bridges small holes inside animal body)
+        4. Connected-component filtering (suppresses components < min_area)
+        5. Guided edge blending with original continuous probability map
+        """
+        # Threshold to uint8 binary mask
+        binary = (seg_map >= threshold).astype(np.uint8) * 255
+
+        # Morphological opening (remove tiny specks) followed by closing (fill holes)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_ksize, morph_ksize))
+        opened = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+        closed = cv2.morphologyEx(opened, cv2.MORPH_CLOSE, kernel)
+
+        # Connected component filtering
+        num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(closed, connectivity=8)
+        filtered_mask = np.zeros_like(closed)
+
+        for i in range(1, num_labels):
+            area = stats[i, cv2.CC_STAT_AREA]
+            if area >= min_area:
+                filtered_mask[labels == i] = 255
+
+        # If any significant component was found, use it to gate the continuous probability map
+        # to retain natural soft edges for CLAHE and fusion
+        if np.any(filtered_mask > 0):
+            # Mild Gaussian blur on gate to prevent harsh edge steps
+            gate = cv2.GaussianBlur(filtered_mask.astype(np.float32) / 255.0, (11, 11), 0)
+            cleaned_seg = seg_map * gate
+            return cleaned_seg.astype(np.float32)
+
+        # If nothing exceeds min_area, return attenuated raw map to prevent false foreground
+        return (seg_map * 0.1).astype(np.float32)
 
 
 # ---------------------------------------------------------------------------

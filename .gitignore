@@ -50,12 +50,15 @@ data/*.png
 # ============================================================
 # Model Checkpoints (can be large — store/share separately)
 # ============================================================
+*.pt
+*.pth
 checkpoints/*
 !checkpoints/.gitkeep
 
 # ============================================================
 # Outputs (generated at runtime — not source files)
 # ============================================================
+uploads/*
 outputs/*/*
 !outputs/*/.gitkeep
 outputs/*.jpg

@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wildlife-COD — Real-Time Camouflage-Aware Detection & Threat Analysis</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --surface-hover: #1f242c;
+            --border: #30363d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --accent: #2ea043;
+            --accent-glow: rgba(46, 160, 67, 0.25);
+            --safe-color: #2ea043;
+            --warn-color: #d29922;
+            --crit-color: #f85149;
+            --blue: #58a6ff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-primary);
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: rgba(22, 27, 34, 0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-badge {
+            background: linear-gradient(135deg, #238636, #2ea043);
+            color: #fff;
+            font-weight: 800;
+            font-size: 14px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .pipeline-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            background: #121d2f;
+            border: 1px solid #1f3554;
+            color: #58a6ff;
+            padding: 4px 12px;
+            border-radius: 20px;
+        }
+
+        main {
+            flex: 1;
+            max-width: 1380px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        .tab-nav {
+            display: flex;
+            gap: 10px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 2rem;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+            color: #58a6ff;
+            border-bottom-color: #58a6ff;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.75rem;
+            margin-bottom: 2rem;
+        }
+
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 2.5rem;
+            text-align: center;
+            background: rgba(13, 17, 23, 0.4);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .upload-zone:hover {
+            border-color: #58a6ff;
+            background: rgba(88, 166, 255, 0.04);
+        }
+
+        .btn-analyze {
+            background: #238636;
+            color: white;
+            border: 1px solid rgba(240, 246, 252, 0.1);
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 0.75rem 2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 1.25rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .btn-analyze:hover {
+            background: #2ea043;
+        }
+
+        .btn-analyze:disabled {
+            background: #21262d;
+            color: #6e7681;
+            cursor: not-allowed;
+        }
+
+        /* Threat Banner */
+        .threat-banner {
+            border-radius: 8px;
+            padding: 1.25rem 1.75rem;
+            margin-bottom: 1.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-left: 6px solid;
+            background: rgba(0, 0, 0, 0.25);
+        }
+
+        .threat-banner.SAFE {
+            border-color: var(--safe-color);
+            background: rgba(46, 160, 67, 0.12);
+        }
+
+        .threat-banner.WARNING {
+            border-color: var(--warn-color);
+            background: rgba(210, 153, 34, 0.12);
+        }
+
+        .threat-banner.CRITICAL {
+            border-color: var(--crit-color);
+            background: rgba(248, 81, 73, 0.15);
+        }
+
+        .threat-level-tag {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+        }
+
+        .threat-banner.SAFE .threat-level-tag { color: var(--safe-color); }
+        .threat-banner.WARNING .threat-level-tag { color: var(--warn-color); }
+        .threat-banner.CRITICAL .threat-level-tag { color: var(--crit-color); }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.75rem;
+        }
+
+        .metric-card {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+        }
+
+        .metric-card .label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+
+        .metric-card .value {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-top: 4px;
+        }
+
+        /* 4-Panel Grid */
+        .comparison-grid-ui {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+            margin-top: 1.5rem;
+        }
+
+        @media (max-width: 900px) {
+            .comparison-grid-ui {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel-box {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 0.6rem 1rem;
+            background: #161b22;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .panel-box img, .panel-box video {
+            width: 100%;
+            height: auto;
+            display: block;
+            background: #000;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .notice-box {
+            background: #161f2e;
+            border: 1px solid #1f3a5f;
+            border-radius: 6px;
+            padding: 0.85rem 1.25rem;
+            font-size: 0.85rem;
+            color: #8bb8e8;
+            margin-top: 1.25rem;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="brand">
+        <span class="logo-badge">WILDLIFE-COD</span>
+        <div>
+            <div class="title">Camouflage-Aware Wildlife Detection & Threat Analysis</div>
+            <div class="subtitle">Final-Year Engineering Project — Unified 7-Stage Pipeline</div>
+        </div>
+    </div>
+    <div class="pipeline-badge">
+        U-Net &rarr; Flow &rarr; Fusion &rarr; YOLOv8 &rarr; DeepSORT &rarr; ZoeDepth &rarr; Threat Analysis
+    </div>
+</header>
+
+<main>
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('image')">Image Analysis Mode</button>
+        <button class="tab-btn" onclick="switchTab('video')">Video Sequence Mode</button>
+    </div>
+
+    <!-- ==================== IMAGE MODE ==================== -->
+    <div id="image-tab">
+        <div class="card">
+            <h3>Upload Camouflaged Animal Image</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9rem;">
+                Select a camouflaged wildlife still frame (.jpg, .jpeg, .png).
+            </p>
+            <div class="upload-zone" onclick="document.getElementById('image-input').click()">
+                <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin: 0 auto 10px; color: #8b949e;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <div id="image-file-name" style="font-weight: 600;">Click to select image or drag and drop</div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">Supports high-res wildlife images</div>
+                <input type="file" id="image-input" accept="image/*" class="hidden" onchange="previewImage(this)">
+            </div>
+            <button id="image-analyze-btn" class="btn-analyze" onclick="analyzeImage()" disabled>
+                <span>Analyze Camouflaged Image</span>
+            </button>
+            <span id="image-loading" class="hidden" style="margin-left: 15px; vertical-align: middle;">
+                <span class="spinner"></span> Processing through U-Net, YOLOv8, ZoeDepth...
+            </span>
+        </div>
+
+        <div id="image-results" class="hidden">
+            <!-- Authoritative Threat Banner -->
+            <div id="image-threat-banner" class="threat-banner">
+                <div>
+                    <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;">Rule-Based Threat Classification</div>
+                    <div id="image-threat-level" class="threat-level-tag">THREAT LEVEL: SAFE</div>
+                    <div id="image-threat-reason" style="font-size: 0.85rem; margin-top: 4px; color: var(--text-secondary);">Reasoning</div>
+                </div>
+                <div style="text-align: right;">
+                    <div id="image-animal-name" style="font-size: 1.35rem; font-weight: 700;">Target: Animal</div>
+                    <div id="image-animal-conf" style="font-size: 0.9rem; color: var(--text-secondary);">Confidence: 0%</div>
+                </div>
+            </div>
+
+            <!-- Key Scientific Metrics Grid -->
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="label">Target Wildlife</div>
+                    <div id="card-animal" class="value">—</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">YOLOv8 Detection Confidence</div>
+                    <div id="card-conf" class="value">—</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Relative Depth Status</div>
+                    <div id="card-depth" class="value">—</div>
+                </div>
+                <div class="metric-card">
+                    <div class="label">Execution Latency</div>
+                    <div id="card-latency" class="value">—</div>
+                </div>
+            </div>
+
+            <!-- 4-Panel Synchronized View -->
+            <div class="comparison-grid-ui">
+                <div class="panel-box">
+                    <div class="panel-header">
+                        <span>1. Original Raw Input</span>
+                        <span style="color: var(--text-secondary);">Stage 0</span>
+                    </div>
+                    <img id="view-original" src="" alt="Original Image">
+                </div>
+
+                <div class="panel-box">
+                    <div class="panel-header">
+                        <span>2. U-Net Camouflage Segmentation Mask</span>
+                        <span style="color: var(--accent);">Stage 1 (Member 1)</span>
+                    </div>
+                    <img id="view-mask" src="" alt="U-Net Mask">
+                </div>
+
+                <div class="panel-box">
+                    <div class="panel-header">
+                        <span>3. Enhanced Frame & YOLOv8 Wildlife Detection</span>
+                        <span style="color: #58a6ff;">Stage 3 & 4</span>
+                    </div>
+                    <img id="view-enhanced" src="" alt="Enhanced Detection">
+                </div>
+
+                <div class="panel-box">
+                    <div class="panel-header">
+                        <span>4. ZoeDepth Relative Depth Map</span>
+                        <span style="color: #d29922;">Stage 6</span>
+                    </div>
+                    <img id="view-depth" src="" alt="ZoeDepth Map">
+                </div>
+            </div>
+
+            <div class="notice-box">
+                <strong>Current Review Limitation Notice:</strong> Depth estimation is generated via ZoeDepth for structural scene awareness. Calibrated metric distance calculation is reserved for calibrated camera deployments and is explicitly not used to force an unvalidated distance number.
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== VIDEO MODE ==================== -->
+    <div id="video-tab" class="hidden">
+        <div class="card">
+            <h3>Upload Camouflaged Wildlife Video</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9rem;">
+                Select a video file (.mp4, .avi, .webm, .mkv) containing moving camouflaged wildlife.
+            </p>
+            <div class="upload-zone" onclick="document.getElementById('video-input').click()">
+                <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin: 0 auto 10px; color: #8b949e;"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                <div id="video-file-name" style="font-weight: 600;">Click to select video or drag and drop</div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">U-Net + Optical Flow + Fusion + YOLOv8 + DeepSORT + ZoeDepth</div>
+                <input type="file" id="video-input" accept="video/*" class="hidden" onchange="previewVideo(this)">
+            </div>
+            <div style="margin-top: 1rem; display: flex; align-items: center; gap: 15px;">
+                <label style="font-size: 0.85rem; color: var(--text-secondary);">
+                    Max frames to analyze (for quick prototype review):
+                    <input type="number" id="max-frames" value="60" min="10" max="1000" style="background: #0d1117; border: 1px solid var(--border); color: #fff; padding: 4px 8px; border-radius: 4px; width: 80px; margin-left: 6px;">
+                </label>
+            </div>
+            <button id="video-analyze-btn" class="btn-analyze" onclick="analyzeVideo()" disabled>
+                <span>Process Video Sequence</span>
+            </button>
+            <span id="video-loading" class="hidden" style="margin-left: 15px; vertical-align: middle;">
+                <span class="spinner"></span> Processing frames through full 7-stage architecture...
+            </span>
+        </div>
+
+        <div id="video-results" class="hidden">
+            <!-- Threat Banner -->
+            <div id="video-threat-banner" class="threat-banner">
+                <div>
+                    <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;">Overall Sequence Threat Assessment</div>
+                    <div id="video-threat-level" class="threat-level-tag">THREAT LEVEL: SAFE</div>
+                    <div id="video-threat-reason" style="font-size: 0.85rem; margin-top: 4px; color: var(--text-secondary);">Reasoning</div>
+                </div>
+                <div style="text-align: right;">
+                    <div id="video-summary-tracks" style="font-size: 1.35rem; font-weight: 700;">DeepSORT Tracking Active</div>
+                    <div id="video-summary-fps" style="font-size: 0.9rem; color: var(--text-secondary);">Actual Offline FPS: 0.0</div>
+                </div>
+            </div>
+
+            <!-- Video Player -->
+            <div class="panel-box" style="margin-bottom: 1.5rem;">
+                <div class="panel-header">
+                    <span>Processed Output Video (Camouflage Highlight + DeepSORT Track ID + Threat HUD)</span>
+                    <a id="video-download-link" href="#" download style="color: #58a6ff; text-decoration: none; font-size: 0.8rem;">Download Video &darr;</a>
+                </div>
+                <video id="output-video-player" controls style="max-height: 540px; margin: 0 auto; width: 100%;">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+
+            <!-- Sample Video Frames Grid -->
+            <div class="panel-box">
+                <div class="panel-header">
+                    <span>Sample Frame Synchronized 4-Stage Comparison</span>
+                </div>
+                <img id="video-sample-comparison" src="" alt="Sample Comparison Grid" style="width: 100%;">
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    let currentTab = 'image';
+
+    function switchTab(tab) {
+        currentTab = tab;
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        if (tab === 'image') {
+            document.querySelectorAll('.tab-btn')[0].classList.add('active');
+            document.getElementById('image-tab').classList.remove('hidden');
+            document.getElementById('video-tab').classList.add('hidden');
+        } else {
+            document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            document.getElementById('image-tab').classList.add('hidden');
+            document.getElementById('video-tab').classList.remove('hidden');
+        }
+    }
+
+    function previewImage(input) {
+        if (input.files && input.files[0]) {
+            document.getElementById('image-file-name').innerText = input.files[0].name;
+            document.getElementById('image-analyze-btn').disabled = false;
+        }
+    }
+
+    function previewVideo(input) {
+        if (input.files && input.files[0]) {
+            document.getElementById('video-file-name').innerText = input.files[0].name;
+            document.getElementById('video-analyze-btn').disabled = false;
+        }
+    }
+
+    async function analyzeImage() {
+        const fileInput = document.getElementById('image-input');
+        if (!fileInput.files || !fileInput.files[0]) return;
+
+        const btn = document.getElementById('image-analyze-btn');
+        const loader = document.getElementById('image-loading');
+        btn.disabled = true;
+        loader.classList.remove('hidden');
+
+        const formData = new FormData();
+        formData.append('image', fileInput.files[0]);
+
+        try {
+            const resp = await fetch('/analyze/image', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json();
+
+            if (!resp.ok) {
+                alert('Error: ' + (data.error || 'Failed to process image'));
+                return;
+            }
+
+            // Display Results
+            document.getElementById('image-results').classList.remove('hidden');
+
+            const banner = document.getElementById('image-threat-banner');
+            banner.className = 'threat-banner ' + data.threat.threat_level;
+            document.getElementById('image-threat-level').innerText = 'THREAT LEVEL: ' + data.threat.threat_level;
+            document.getElementById('image-threat-reason').innerText = data.threat.reason;
+            document.getElementById('image-animal-name').innerText = 'Target: ' + data.threat.animal_class;
+            document.getElementById('image-animal-conf').innerText = 'Confidence: ' + (data.threat.confidence * 100).toFixed(1) + '%';
+
+            document.getElementById('card-animal').innerText = data.threat.animal_class;
+            document.getElementById('card-conf').innerText = (data.threat.confidence * 100).toFixed(1) + '%';
+            document.getElementById('card-depth').innerText = data.threat.relative_depth;
+            document.getElementById('card-latency').innerText = data.elapsed_ms.toFixed(0) + ' ms';
+
+            document.getElementById('view-original').src = data.paths.original + '?t=' + Date.now();
+            document.getElementById('view-mask').src = data.paths.mask + '?t=' + Date.now();
+            document.getElementById('view-enhanced').src = data.paths.annotated + '?t=' + Date.now();
+            document.getElementById('view-depth').src = data.paths.depth + '?t=' + Date.now();
+
+            banner.scrollIntoView({ behavior: 'smooth' });
+        } catch (err) {
+            alert('Request error: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            loader.classList.add('hidden');
+        }
+    }
+
+    async function analyzeVideo() {
+        const fileInput = document.getElementById('video-input');
+        if (!fileInput.files || !fileInput.files[0]) return;
+
+        const maxFrames = document.getElementById('max-frames').value || 60;
+        const btn = document.getElementById('video-analyze-btn');
+        const loader = document.getElementById('video-loading');
+        btn.disabled = true;
+        loader.classList.remove('hidden');
+
+        const formData = new FormData();
+        formData.append('video', fileInput.files[0]);
+        formData.append('max_frames', maxFrames);
+
+        try {
+            const resp = await fetch('/analyze/video', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json();
+
+            if (!resp.ok) {
+                alert('Error: ' + (data.error || 'Failed to process video'));
+                return;
+            }
+
+            document.getElementById('video-results').classList.remove('hidden');
+
+            const banner = document.getElementById('video-threat-banner');
+            const threatLevel = data.overall_threat ? data.overall_threat.threat_level : 'SAFE';
+            banner.className = 'threat-banner ' + threatLevel;
+            document.getElementById('video-threat-level').innerText = 'THREAT LEVEL: ' + threatLevel;
+            document.getElementById('video-threat-reason').innerText = data.overall_threat ? data.overall_threat.reason : 'Sequence clear';
+            document.getElementById('video-summary-fps').innerText = 'Actual Offline FPS: ' + data.actual_fps.toFixed(1);
+
+            const videoPlayer = document.getElementById('output-video-player');
+            videoPlayer.src = data.video_url + '?t=' + Date.now();
+            document.getElementById('video-download-link').href = data.video_url;
+
+            if (data.sample_comparison_url) {
+                document.getElementById('video-sample-comparison').src = data.sample_comparison_url + '?t=' + Date.now();
+            }
+
+            banner.scrollIntoView({ behavior: 'smooth' });
+        } catch (err) {
+            alert('Request error: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            loader.classList.add('hidden');
+        }
+    }
+</script>
+</body>
+</html>

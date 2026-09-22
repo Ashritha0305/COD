@@ -48,3 +48,13 @@ tensorboard>=2.13.0
 # Utilities
 PyYAML>=6.0       # YAML config support if needed later
 colorama>=0.4.6   # Coloured terminal output (verify_environment.py)
+
+# Object Detection & Tracking
+ultralytics>=8.0.0
+deep-sort-realtime>=1.3.0
+
+# Depth Estimation
+timm>=1.0.0
+
+# Web Application UI
+Flask>=3.0.0
