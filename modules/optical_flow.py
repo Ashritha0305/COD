@@ -30,7 +30,7 @@ Reference:
 
 import os
 import sys
-from typing import Optional
+from typing import Optional, Tuple
 
 import cv2
 import numpy as np
@@ -100,6 +100,14 @@ class FarnebackOpticalFlow:
         prev_gray = _to_gray(prev_bgr)
         curr_gray = _to_gray(curr_bgr)
 
+        # Defend against resolution mismatch
+        if prev_gray.shape != curr_gray.shape:
+            prev_gray = cv2.resize(
+                prev_gray,
+                (curr_gray.shape[1], curr_gray.shape[0]),
+                interpolation=cv2.INTER_LINEAR,
+            )
+
         flow = cv2.calcOpticalFlowFarneback(
             prev_gray,
             curr_gray,
@@ -120,7 +128,11 @@ class FarnebackOpticalFlow:
     # Stateful API — call frame by frame during video inference
     # ------------------------------------------------------------------
 
-    def process_frame(self, curr_bgr: np.ndarray) -> Optional[np.ndarray]:
+    def process_frame(
+        self,
+        curr_bgr: np.ndarray,
+        target_size: Optional[Tuple[int, int]] = None,
+    ) -> Optional[np.ndarray]:
         """
         Process one new frame. Remembers the previous frame automatically.
 
@@ -128,6 +140,27 @@ class FarnebackOpticalFlow:
         ----------
         curr_bgr : np.ndarray, shape (H, W, 3), dtype uint8
             Current frame in BGR colour order.
+        target_size : tuple of (width, height), optional
+            Reduced working resolution to compute optical flow for speed optimization.
+            If None, checks config.OPTICAL_FLOW_WIDTH and config.OPTICAL_FLOW_HEIGHT.
+            If provided or configured, flow is calculated at target_size and upscaled
+            to original frame size via bilinear interpolation.
+
+        Mathematical Note on Vector Scaling vs Magnitude Scaling:
+        ---------------------------------------------------------
+        When Farneback optical flow is computed at a reduced resolution (W_small, H_small),
+        the resulting displacement vectors (u_small, v_small) represent displacements in
+        small-pixel units. If scaled to full resolution (W_orig, H_orig) by s = W_orig / W_small,
+        the physical displacements become (u = s * u_small, v = s * v_small).
+        The magnitude is:
+            mag = sqrt((s * u_small)^2 + (s * v_small)^2)
+                = s * sqrt(u_small^2 + v_small^2) = s * mag_small.
+        When normalized by the 99th percentile p_99 = s * p_99_small:
+            mag_norm = (s * mag_small) / (s * p_99_small) = mag_small / p_99_small.
+        The constant spatial scale factor s cancels out exactly in the normalized
+        motion magnitude map in [0, 1]. Upscaling the normalized scalar field mag_norm
+        via bilinear interpolation (cv2.INTER_LINEAR) smoothly interpolates motion
+        evidence across original image coordinates without distortion or artifacting.
 
         Returns
         -------
@@ -135,17 +168,39 @@ class FarnebackOpticalFlow:
             Normalised motion magnitude in [0, 1].
             Returns None for the very first frame (no previous frame exists).
         """
+        orig_h, orig_w = curr_bgr.shape[:2]
         curr_gray = _to_gray(curr_bgr)
+
+        # Resolve target resolution from config if not explicitly passed
+        if target_size is None and hasattr(config, "OPTICAL_FLOW_WIDTH"):
+            of_w = getattr(config, "OPTICAL_FLOW_WIDTH", None)
+            of_h = getattr(config, "OPTICAL_FLOW_HEIGHT", None)
+            if of_w and of_h and (orig_w > of_w or orig_h > of_h):
+                target_size = (of_w, of_h)
+
+        # Apply reduced working resolution if requested
+        if target_size is not None and (orig_w, orig_h) != target_size:
+            calc_gray = cv2.resize(curr_gray, target_size, interpolation=cv2.INTER_AREA)
+        else:
+            calc_gray = curr_gray
 
         if self._prev_gray is None:
             # First frame — store it, return no motion map yet
-            self._prev_gray = curr_gray
+            self._prev_gray = calc_gray
             self._prev_bgr  = curr_bgr.copy()
             return None
 
+        # Defend against frame dimension changes (e.g. screen recordings, new clips)
+        if self._prev_gray.shape != calc_gray.shape:
+            self._prev_gray = cv2.resize(
+                self._prev_gray,
+                (calc_gray.shape[1], calc_gray.shape[0]),
+                interpolation=cv2.INTER_LINEAR,
+            )
+
         flow = cv2.calcOpticalFlowFarneback(
             self._prev_gray,
-            curr_gray,
+            calc_gray,
             None,
             config.OF_PYR_SCALE,
             config.OF_LEVELS,
@@ -157,8 +212,19 @@ class FarnebackOpticalFlow:
         )
 
         self._prev_bgr  = curr_bgr.copy()  # store for external visualisation
-        self._prev_gray = curr_gray         # update for next call
-        return _flow_to_magnitude(flow)
+        self._prev_gray = calc_gray         # update for next call
+        motion_map = _flow_to_magnitude(flow)
+
+        # Scale motion map back to original frame dimensions if target_size was used
+        # Note: cv2.resize natively supports float32 (CV_32F) without double-precision conversion
+        if target_size is not None and (orig_w, orig_h) != target_size:
+            motion_map = cv2.resize(
+                motion_map,
+                (orig_w, orig_h),
+                interpolation=cv2.INTER_LINEAR,
+            )
+
+        return motion_map
 
     def reset(self) -> None:
         """
@@ -166,6 +232,7 @@ class FarnebackOpticalFlow:
         Call this when switching to a new video clip or scene.
         """
         self._prev_gray = None
+        self._prev_bgr  = None
 
     def get_flow_rgb(
         self,
@@ -182,6 +249,13 @@ class FarnebackOpticalFlow:
         """
         prev_gray = _to_gray(prev_bgr)
         curr_gray = _to_gray(curr_bgr)
+
+        if prev_gray.shape != curr_gray.shape:
+            prev_gray = cv2.resize(
+                prev_gray,
+                (curr_gray.shape[1], curr_gray.shape[0]),
+                interpolation=cv2.INTER_LINEAR,
+            )
 
         flow = cv2.calcOpticalFlowFarneback(
             prev_gray, curr_gray, None,

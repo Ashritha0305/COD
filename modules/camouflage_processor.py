@@ -73,7 +73,7 @@ DESIGN DECISIONS
 import os
 import sys
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 from pathlib import Path
 
 import cv2
@@ -114,12 +114,19 @@ class ProcessorResult:
         Combined attention map (weighted seg + flow). Values in [0, 1].
     mode : str
         Processing mode used for this frame ("image" or "video").
+    binary_mask : np.ndarray, shape (H, W), dtype uint8
+        Clean thresholded U-Net binary mask (values 0 or 255).
+    fg_pct : float
+        Percentage of foreground pixels according to the threshold.
     """
     enhanced_frame: np.ndarray
     seg_mask:       np.ndarray
     flow_map:       Optional[np.ndarray]
     attention_map:  np.ndarray
     mode:           str = "video"
+    binary_mask:    Optional[np.ndarray] = None
+    fg_pct:         float = 0.0
+    unet_ran:       bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -148,6 +155,7 @@ class CamouflageProcessor:
         checkpoint_path: Optional[str] = None,
         device: Optional[str] = None,
         mode: str = config.PROCESSING_MODE,
+        save_debug: bool = False,
     ) -> None:
 
         # ---- Validate mode ----
@@ -157,6 +165,8 @@ class CamouflageProcessor:
                 "Set config.PROCESSING_MODE or pass mode= to __init__."
             )
         self._default_mode = mode
+        self._checkpoint_path = checkpoint_path
+        self.save_debug = save_debug
 
         # ---- Device ----
         if device is None:
@@ -245,6 +255,12 @@ class CamouflageProcessor:
         self._std  = torch.tensor([0.229, 0.224, 0.225],
                                    device=self._device).view(1, 3, 1, 1)
 
+        # Cache for temporal reuse in video mode
+        self._prev_prob_orig: Optional[np.ndarray] = None
+        self._prev_binary_mask: Optional[np.ndarray] = None
+        self._prev_fg_pct: float = 0.0
+        self._last_unet_ran: bool = False
+
         print(f"[CamouflageProcessor] Device: {self._device}")
         print(f"[CamouflageProcessor] Default mode: {self._default_mode}")
 
@@ -256,6 +272,7 @@ class CamouflageProcessor:
         self,
         frame_bgr: np.ndarray,
         mode: Optional[str] = None,
+        reuse_unet: bool = False,
     ) -> ProcessorResult:
         """
         Process one frame through the Member 1 pipeline.
@@ -269,6 +286,9 @@ class CamouflageProcessor:
             "video" = full pipeline (U-Net + Optical Flow + temporal smoothing).
             "image" = U-Net only (no flow, no temporal state).
             None    = use the mode set at construction time.
+        reuse_unet : bool
+            In video mode, if True and a previous valid U-Net mask is cached,
+            reuses the previous actual U-Net prediction instead of re-running U-Net.
 
         Returns
         -------
@@ -290,50 +310,79 @@ class CamouflageProcessor:
         # the image-mode output. No optical flow is computed.
         if effective_mode == "image":
             self.reset()
+            reuse_unet = False
 
         # ---- Step 1: U-Net segmentation (both modes) ----
-        seg_map_unet_res = self._run_unet(frame_bgr)   # (unet_H, unet_W)
+        unet_ran = True
+        if effective_mode == "video" and reuse_unet and self._prev_prob_orig is not None:
+            # Temporal reuse: use the actual previous U-Net prediction
+            prob_orig = self._prev_prob_orig
+            if prob_orig.shape[:2] != (orig_h, orig_w):
+                prob_orig = cv2.resize(
+                    prob_orig.astype(np.float64), (orig_w, orig_h), interpolation=cv2.INTER_LINEAR
+                ).astype(np.float32)
+            binary_mask = self._prev_binary_mask
+            if binary_mask is not None and binary_mask.shape[:2] != (orig_h, orig_w):
+                binary_mask = cv2.resize(
+                    binary_mask, (orig_w, orig_h), interpolation=cv2.INTER_NEAREST
+                )
+            fg_pct = self._prev_fg_pct
+            unet_ran = False
+        else:
+            prob_orig, binary_mask, fg_pct = self._run_unet(frame_bgr)
+            self._prev_prob_orig = prob_orig
+            self._prev_binary_mask = binary_mask
+            self._prev_fg_pct = fg_pct
+            unet_ran = True
 
-        # Resize seg map back to original frame resolution
-        # Note: OpenCV 5 requires explicit dtype handling for single-channel float maps.
-        seg_map_raw = cv2.resize(
-            seg_map_unet_res.astype(np.float64),
-            (orig_w, orig_h),
-            interpolation=cv2.INTER_LINEAR,
-        ).astype(np.float32)   # (orig_H, orig_W)
-
-        # Morphological cleanup & noise suppression (preserves real animal boundaries)
-        seg_map = self._post_process_mask(seg_map_raw)
+        self._last_unet_ran = unet_ran
 
         # ---- Step 2: Optical Flow (VIDEO MODE ONLY) ----
         # In IMAGE mode, skip flow entirely -- there is no previous frame to compare
         # against, and temporal EMA has been reset. flow_map stays None.
         flow_map = None
         if effective_mode == "video" and config.RUN_FLOW_EVERY_FRAME:
-            flow_map = self._flow_module.process_frame(frame_bgr)
+            of_w = getattr(config, "OPTICAL_FLOW_WIDTH", getattr(config, "VIDEO_PROCESS_WIDTH", None))
+            of_h = getattr(config, "OPTICAL_FLOW_HEIGHT", getattr(config, "VIDEO_PROCESS_HEIGHT", None))
+            flow_target = (of_w, of_h) if (of_w and of_h and (orig_w > of_w or orig_h > of_h)) else None
+            flow_map = self._flow_module.process_frame(frame_bgr, target_size=flow_target)
             # Returns None for the very first frame -- handled gracefully by fuser
 
-        # ---- Step 3: Fusion + Enhancement ----
+        # ---- Step 3: Fusion + Enhancement (Part 5 pipeline) ----
+        # Soft feathering along binary mask boundaries for natural local contrast enhancement
+        # inside/around the animal region while preserving the natural background.
+        feathered = cv2.GaussianBlur((binary_mask > 0).astype(np.float32), (15, 15), 0)
+        soft_attn = (prob_orig * feathered).astype(np.float32)
+
         attention_map  = self._fuser.get_attention_map(
-            orig_h, orig_w, seg_map, flow_map
+            orig_h, orig_w, soft_attn, flow_map
         )
-        enhanced_frame = self._fuser.fuse(frame_bgr, seg_map, flow_map)
+        enhanced_frame = self._fuser.fuse(frame_bgr, soft_attn, flow_map)
 
         return ProcessorResult(
             enhanced_frame=enhanced_frame,
-            seg_mask=seg_map,
+            seg_mask=prob_orig,
             flow_map=flow_map,
             attention_map=attention_map,
             mode=effective_mode,
+            binary_mask=binary_mask,
+            fg_pct=fg_pct,
+            unet_ran=unet_ran,
         )
 
     def reset(self) -> None:
         """
-        Reset the internal state of the optical flow module.
+        Reset the internal state of the optical flow and fusion modules.
         Call this when starting a new video clip or camera session.
         Also called automatically at the start of each IMAGE mode call.
         """
         self._flow_module.reset()
+        if hasattr(self, "_fuser") and hasattr(self._fuser, "reset"):
+            self._fuser.reset()
+        self._prev_prob_orig = None
+        self._prev_binary_mask = None
+        self._prev_fg_pct = 0.0
+        self._last_unet_ran = False
 
     def visualise(
         self,
@@ -402,34 +451,36 @@ class CamouflageProcessor:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _run_unet(self, frame_bgr: np.ndarray) -> np.ndarray:
+    def _run_unet(self, frame_bgr: np.ndarray) -> Tuple[np.ndarray, np.ndarray, float]:
         """
         Run U-Net on one frame.
 
         1. Convert BGR -> RGB
         2. Resize to (INPUT_HEIGHT, INPUT_WIDTH)
         3. Normalise with ImageNet mean/std
-        4. Forward pass through U-Net
-        5. Return (H, W) float32 numpy array in [0, 1]
+        4. Forward pass through U-Net -> raw logits
+        5. sigmoid(logits) -> probability
+        6. Resize probability back to original image dimensions
+        7. Threshold to obtain binary mask
+        8. Print mandatory U-NET CHECK and save debug masks
         """
-        # BGR -> RGB -> float32 in [0, 1]
+        orig_h, orig_w = frame_bgr.shape[:2]
+
+        # 1. RGB image: BGR -> RGB -> float32 in [0, 1]
         rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
 
-        # Resize to U-Net input size
+        # 2. Resize to U-Net input size
         rgb_resized = cv2.resize(
             rgb,
             (config.INPUT_WIDTH, config.INPUT_HEIGHT),
             interpolation=cv2.INTER_LINEAR,
         )
 
-        # (H, W, 3) -> (1, 3, H, W) tensor
-        tensor = torch.from_numpy(rgb_resized.transpose(2, 0, 1)).unsqueeze(0)
-        tensor = tensor.to(self._device)
-
-        # Normalise
+        # 3. (H, W, 3) -> (1, 3, H, W) tensor & ImageNet normalize
+        tensor = torch.from_numpy(rgb_resized.transpose(2, 0, 1)).unsqueeze(0).to(self._device)
         tensor = (tensor - self._mean) / self._std
 
-        # Forward -- model returns raw logits (by design, no sigmoid inside U-Net)
+        # 4. Forward -- model returns raw logits (no sigmoid inside U-Net)
         with torch.no_grad():
             with torch.amp.autocast(
                 device_type=self._device.type,
@@ -437,55 +488,81 @@ class CamouflageProcessor:
             ):
                 logits = self._model(tensor)            # (1, 1, H, W)  raw logits
 
-        # Convert to probability ONCE here, outside the network.
-        # This keeps the U-Net architecture clean (logits only) while ensuring
-        # seg_map is a proper [0, 1] probability map for fusion.
-        prob    = torch.sigmoid(logits)                 # (1, 1, H, W)  [0, 1]
-        seg_map = prob.squeeze().float().cpu().numpy()  # (H, W)  float32  [0, 1]
-        return seg_map
+        # 5. Probability = sigmoid(logits) outside network
+        prob = torch.sigmoid(logits)                    # (1, 1, H, W)  [0, 1]
 
-    def _post_process_mask(
-        self,
-        seg_map: np.ndarray,
-        threshold: float = 0.35,
-        min_area: int = 250,
-        morph_ksize: int = 7,
-    ) -> np.ndarray:
-        """
-        Morphological post-processing for U-Net probability map:
-        1. Suppresses low-level background noise (< threshold)
-        2. Morphological opening (removes tiny isolated background noise blobs)
-        3. Morphological closing (bridges small holes inside animal body)
-        4. Connected-component filtering (suppresses components < min_area)
-        5. Guided edge blending with original continuous probability map
-        """
-        # Threshold to uint8 binary mask
-        binary = (seg_map >= threshold).astype(np.uint8) * 255
+        logit_min = float(logits.min())
+        logit_max = float(logits.max())
+        prob_min = float(prob.min())
+        prob_max = float(prob.max())
 
-        # Morphological opening (remove tiny specks) followed by closing (fill holes)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_ksize, morph_ksize))
-        opened = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
-        closed = cv2.morphologyEx(opened, cv2.MORPH_CLOSE, kernel)
+        prob_2d = prob.squeeze().float().cpu().numpy()  # (INPUT_HEIGHT, INPUT_WIDTH)
 
-        # Connected component filtering
-        num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(closed, connectivity=8)
-        filtered_mask = np.zeros_like(closed)
+        # 6. Resize probability map back to original frame resolution
+        prob_orig = cv2.resize(
+            prob_2d.astype(np.float64),
+            (orig_w, orig_h),
+            interpolation=cv2.INTER_LINEAR,
+        ).astype(np.float32)
 
-        for i in range(1, num_labels):
-            area = stats[i, cv2.CC_STAT_AREA]
-            if area >= min_area:
-                filtered_mask[labels == i] = 255
+        # 7. Adaptive Thresholding to obtain binary mask:
+        # Standard threshold is config.SEG_THRESHOLD (0.50).
+        # On unseen/new images or challenging camouflage, peak probability may be in [0.20, 0.49].
+        # If we rigidly enforce 0.50, the mask becomes completely empty (black).
+        # We adaptively calculate the threshold if a distinct foreground peak exists:
+        p_max = float(prob_orig.max())
+        p_min = float(prob_orig.min())
+        p_range = p_max - p_min
+        cfg_thresh = float(config.SEG_THRESHOLD)
 
-        # If any significant component was found, use it to gate the continuous probability map
-        # to retain natural soft edges for CLAHE and fusion
-        if np.any(filtered_mask > 0):
-            # Mild Gaussian blur on gate to prevent harsh edge steps
-            gate = cv2.GaussianBlur(filtered_mask.astype(np.float32) / 255.0, (11, 11), 0)
-            cleaned_seg = seg_map * gate
-            return cleaned_seg.astype(np.float32)
+        if p_max >= cfg_thresh:
+            mask_thresh = cfg_thresh
+        elif p_range >= 0.12 and p_max >= 0.18:
+            # Detectable foreground contrast: set threshold at 50% between min and max
+            mask_thresh = float(np.clip(p_min + p_range * 0.50, 0.15, cfg_thresh))
+        else:
+            mask_thresh = cfg_thresh
 
-        # If nothing exceeds min_area, return attenuated raw map to prevent false foreground
-        return (seg_map * 0.1).astype(np.float32)
+        binary_mask = (prob_orig >= mask_thresh).astype(np.uint8) * 255
+
+        # Morphological filtering to eliminate isolated pixel noise & solidify animal contours
+        if np.sum(binary_mask > 0) > 0:
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+            binary_mask = cv2.morphologyEx(binary_mask, cv2.MORPH_CLOSE, kernel)
+            binary_mask = cv2.morphologyEx(binary_mask, cv2.MORPH_OPEN, kernel)
+
+        fg_pixels = int(np.sum(binary_mask > 0))
+        fg_pct = (fg_pixels / (orig_h * orig_w)) * 100.0
+
+        # Mandatory U-NET CHECK printout (Part 3)
+        ckpt_display = self._checkpoint_path or "checkpoints/unet_best.pth"
+        print("U-NET CHECK")
+        print("-----------")
+        print(f"Checkpoint: {ckpt_display}")
+        print(f"Input shape: ({orig_h}, {orig_w}, 3)")
+        print(f"Output shape: ({orig_h}, {orig_w})")
+        print(f"Logit min: {logit_min:.4f}")
+        print(f"Logit max: {logit_max:.4f}")
+        print(f"Probability min: {prob_min:.4f}")
+        print(f"Probability max: {prob_max:.4f}")
+        print(f"Mask threshold: {mask_thresh:.2f}")
+        print(f"Foreground pixels: {fg_pixels}")
+        print(f"Foreground percentage: {fg_pct:.2f}%\n")
+
+        # Debug output saves (Part 3 / Requirement A.5)
+        # Controlled by save_debug or config.SAVE_DEBUG_MASKS (disabled during normal video inference)
+        if getattr(self, "save_debug", False) or getattr(config, "SAVE_DEBUG_MASKS", False):
+            os.makedirs(config.OUTPUTS_DIR, exist_ok=True)
+            cv2.imwrite(
+                os.path.join(config.OUTPUTS_DIR, "debug_unet_probability.png"),
+                (np.clip(prob_orig, 0.0, 1.0) * 255.0).astype(np.uint8),
+            )
+            cv2.imwrite(
+                os.path.join(config.OUTPUTS_DIR, "debug_unet_mask.png"),
+                binary_mask,
+            )
+
+        return prob_orig, binary_mask, fg_pct
 
 
 # ---------------------------------------------------------------------------

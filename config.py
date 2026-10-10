@@ -216,6 +216,14 @@ OF_POLY_N     = 5      # Size of the pixel neighbourhood for polynomial expansio
 OF_POLY_SIGMA = 1.2    # Std-dev of Gaussian used for polynomial expansion.
 OF_FLAGS      = 0      # Additional flags (0 = default behaviour).
 
+# Optical Flow target working resolution for video pipeline speedup
+OPTICAL_FLOW_WIDTH  = 640
+OPTICAL_FLOW_HEIGHT = 360
+
+# Synchronous debug PNG writes (cv2.imwrite of debug_unet_probability.png and mask.png)
+# Set to False during video inference to avoid synchronous disk locks.
+SAVE_DEBUG_MASKS    = False
+
 # ============================================================
 # FUSION / ENHANCEMENT
 # ============================================================
@@ -257,20 +265,24 @@ FUSION_TEMPORAL_ALPHA       = 0.7
 SEG_THRESHOLD = 0.5
 
 # Whether to run U-Net on every frame (True) or allow frame-skipping (False).
-# Frame-skipping logic will be added only if performance testing requires it.
 RUN_UNET_EVERY_FRAME = True
 
 # Whether to run Optical Flow on every consecutive frame pair.
 RUN_FLOW_EVERY_FRAME = True
 
 # Processing mode for CamouflageProcessor and run_pipeline.py.
-# "video" : full pipeline — U-Net + Optical Flow + Fusion with temporal smoothing.
-#           Use for video sequences or camera streams.
-# "image" : U-Net only — no optical flow (no previous frame to compare against),
-#           no temporal EMA smoothing. Fusion falls back to seg-only attention.
-#           Use for single still images.
-# This flag sets the DEFAULT mode; it can be overridden per-call or via CLI.
 PROCESSING_MODE = "video"  # "video" | "image"
+
+# ============================================================
+# VIDEO PROCESSING OPTIMIZATIONS (PHASE 1 LATENCY REDUCTION)
+# ============================================================
+VIDEO_DETECTION_INTERVAL = 3   # Run YOLOv8 detection every N frames (DeepSORT tracks in-between)
+VIDEO_DEPTH_INTERVAL     = 5   # Run ZoeDepth estimation every N frames (reused in-between)
+VIDEO_UNET_INTERVAL      = 2   # Run U-Net segmentation every N frames (reused in-between)
+VIDEO_FLOW_INTERVAL      = 1   # Run Optical Flow every N frames
+
+VIDEO_PROCESS_WIDTH      = 960 # Intermediate processing resolution width for video
+VIDEO_PROCESS_HEIGHT     = 540 # Intermediate processing resolution height for video
 
 # ============================================================
 # VISUALIZATION
@@ -284,3 +296,98 @@ VIZ_FLOW_COLORMAP = "jet"  # Matplotlib colormap name for flow magnitude images.
 # ============================================================
 
 LOG_DIR = os.path.join(BASE_DIR, "outputs", "logs")
+
+# ============================================================
+# YOLOV8 / YOLO-WORLD WILDLIFE DETECTION
+# ============================================================
+YOLO_BASE_WEIGHTS = os.path.join(BASE_DIR, "yolov8n.pt")
+YOLO_WILDLIFE_WEIGHTS = os.path.join(BASE_DIR, "runs", "detect", "wildlife_yolov8", "weights", "best.pt")
+
+# Detection Mode:
+#   "world"  : Open-Vocabulary YOLO-World (detects and names any animal beyond the 34 MoCA classes)
+#   "custom" : Closed 34-class MoCA wildlife model (intended project detector)
+YOLO_MODE = "custom"
+YOLO_WORLD_WEIGHTS = "yolov8s-worldv2.pt"
+
+YOLO_CONF_THRESH = 0.15       # Camouflage inherently reduces raw confidence
+YOLO_IOU_THRESH = 0.45
+YOLO_UNKNOWN_THRESH = 0.20   # Detections below this are marked as Unknown/Low Confidence
+
+# Open-Vocabulary Wildlife Dictionary for YOLO-World
+# Includes all 34 MoCA camouflage animals + global predators, mammals, reptiles, birds, marine, and insects
+OPEN_WILDLIFE_CLASSES = [
+    # --- MoCA Camouflage Species ---
+    "crab", "cuttlefish", "devil_scorpionfish", "eastern_screech_owl", "egyptian_nightjar",
+    "elephant", "flatfish", "flounder", "grasshopper", "hedgehog", "hermit_crab",
+    "jerboa", "leaf_tail_gecko", "lichen_katydid", "markhor", "mountain_goat",
+    "nile_monitor", "octopus", "orchid_mantis", "pallas_cat", "peacock_flounder",
+    "plaice", "polar_bear", "potoo", "pygmy_seahorse", "rusty_spotted_cat",
+    "scorpionfish", "seal", "shrimp", "smallfish", "snow_leopard", "sole",
+    "spider_tailed_horned_viper", "leopard",
+    # --- Apex Predators & Dangerous Wildlife ---
+    "lion", "tiger", "cheetah", "jaguar", "panther", "cougar", "puma", "wolf", "hyena",
+    "grizzly_bear", "brown_bear", "black_bear", "bear", "crocodile", "alligator", "caiman",
+    "coyote", "wolverine", "rhino", "hippopotamus", "buffalo", "bison", "wild_boar", "boar",
+    # --- Venomous & Camouflaged Reptiles / Amphibians ---
+    "snake", "viper", "pit_viper", "rattlesnake", "cobra", "python", "mamba", "anaconda",
+    "chameleon", "lizard", "gecko", "iguana", "monitor_lizard", "komodo_dragon", "horned_lizard",
+    "toad", "frog", "bullfrog", "tree_frog", "poison_dart_frog", "salamander", "tortoise", "turtle",
+    # --- Birds of Prey & Camouflaged Birds ---
+    "owl", "barn_owl", "screech_owl", "snowy_owl", "great_horned_owl", "eagle", "hawk", "falcon",
+    "vulture", "nightjar", "bittern", "heron", "egret", "ptarmigan", "partridge", "grouse", "pheasant", "bird",
+    # --- Mammals (Herbivores, Ungulates & Small Mammals) ---
+    "deer", "elk", "moose", "antelope", "gazelle", "impala", "zebra", "giraffe", "monkey", "baboon",
+    "fox", "arctic_fox", "red_fox", "fennec_fox", "rabbit", "hare", "arctic_hare", "squirrel",
+    "badger", "otter", "meerkat", "mongoose", "sloth", "armadillo", "pangolin", "porcupine", "bat",
+    # --- Aquatic & Marine Camouflage ---
+    "shark", "stingray", "manta_ray", "squid", "stonefish", "lionfish", "frogfish", "seahorse",
+    "pipefish", "lobster", "sea_lion", "walrus",
+    # --- Camouflaged Insects & Arthropods ---
+    "praying_mantis", "mantis", "stick_insect", "leaf_insect", "katydid", "cicada", "moth",
+    "peppered_moth", "caterpillar", "beetle", "spider", "tarantula", "scorpion",
+    # --- General Fallbacks ---
+    "wildlife", "animal", "predator", "reptile"
+]
+
+# ============================================================
+# RULE-BASED THREAT ANALYSIS (CENTRALIZED CONFIG)
+# ============================================================
+# Apex predators and dangerous large wildlife
+HIGH_THREAT_ANIMALS = {
+    "snow_leopard", "spider_tailed_horned_viper", "polar_bear",
+    "elephant", "nile_monitor", "devil_scorpionfish", "scorpionfish",
+    "bear", "grizzly_bear", "brown_bear", "black_bear", "leopard",
+    "jaguar", "lion", "tiger", "wolf", "cheetah", "panther", "cougar", "puma",
+    "hyena", "crocodile", "alligator", "caiman", "snake", "viper", "pit_viper",
+    "cobra", "mamba", "rattlesnake", "python", "anaconda", "rhino", "hippopotamus",
+    "shark", "stonefish", "lionfish", "komodo_dragon", "wolverine"
+}
+
+# Medium-risk wildlife
+MEDIUM_THREAT_ANIMALS = {
+    "markhor", "mountain_goat", "seal", "pallas_cat", "rusty_spotted_cat",
+    "eastern_screech_owl", "cuttlefish", "octopus", "hedgehog",
+    "deer", "elk", "moose", "zebra", "boar", "wild_boar", "bison", "buffalo",
+    "monkey", "baboon", "fox", "arctic_fox", "red_fox", "coyote", "sea_lion", "walrus",
+    "monitor_lizard", "badger", "porcupine", "eagle", "vulture"
+}
+
+# Low-threat wildlife
+LOW_THREAT_ANIMALS = {
+    "crab", "hermit_crab", "shrimp", "smallfish", "flatfish", "flounder",
+    "peacock_flounder", "plaice", "sole", "grasshopper", "lichen_katydid",
+    "orchid_mantis", "praying_mantis", "mantis", "stick_insect", "leaf_insect",
+    "katydid", "jerboa", "leaf_tail_gecko", "chameleon", "gecko", "lizard",
+    "pygmy_seahorse", "seahorse", "pipefish", "egyptian_nightjar", "nightjar",
+    "potoo", "owl", "bird", "ptarmigan", "grouse", "partridge", "pheasant",
+    "rabbit", "hare", "squirrel", "sloth", "armadillo", "turtle", "tortoise",
+    "frog", "toad", "salamander", "moth", "caterpillar", "sheep", "horse", "dog", "cat",
+    "animal", "wildlife"
+}
+
+THREAT_MOTION_LOW = 0.15
+THREAT_MOTION_HIGH = 0.40
+THREAT_CONF_CRITICAL = 0.50
+THREAT_PERSISTENCE_CRITICAL = 5
+
+

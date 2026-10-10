@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wildlife-COD — Real-Time Camouflage-Aware Detection & Threat Analysis</title>
+    <title>Wildlife-COD — Camouflage-Aware Wildlife Detection & Threat Alert Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -13,8 +13,6 @@
             --border: #30363d;
             --text-primary: #f0f6fc;
             --text-secondary: #8b949e;
-            --accent: #2ea043;
-            --accent-glow: rgba(46, 160, 67, 0.25);
             --safe-color: #2ea043;
             --warn-color: #d29922;
             --crit-color: #f85149;
@@ -28,7 +26,7 @@
         }
 
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background-color: var(--bg);
             color: var(--text-primary);
             line-height: 1.5;
@@ -41,7 +39,7 @@
             background: rgba(22, 27, 34, 0.95);
             backdrop-filter: blur(12px);
             border-bottom: 1px solid var(--border);
-            padding: 1rem 2rem;
+            padding: 0.85rem 2rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -60,30 +58,69 @@
             background: linear-gradient(135deg, #238636, #2ea043);
             color: #fff;
             font-weight: 800;
-            font-size: 14px;
+            font-size: 13px;
             padding: 4px 10px;
             border-radius: 6px;
             letter-spacing: 0.5px;
         }
 
         .title {
-            font-size: 1.25rem;
+            font-size: 1.15rem;
             font-weight: 700;
             letter-spacing: -0.02em;
         }
 
         .subtitle {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: var(--text-secondary);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-audio {
+            background: #21262d;
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .btn-audio:hover {
+            border-color: #58a6ff;
+        }
+
+        .phone-link-btn {
+            background: rgba(88, 166, 255, 0.15);
+            border: 1px solid rgba(88, 166, 255, 0.4);
+            color: #58a6ff;
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .pipeline-badge {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             background: #121d2f;
             border: 1px solid #1f3554;
             color: #58a6ff;
-            padding: 4px 12px;
+            padding: 4px 10px;
             border-radius: 20px;
         }
 
@@ -92,23 +129,23 @@
             max-width: 1380px;
             width: 100%;
             margin: 0 auto;
-            padding: 2rem 1.5rem;
+            padding: 1.75rem 1.5rem;
         }
 
         .tab-nav {
             display: flex;
             gap: 10px;
             border-bottom: 1px solid var(--border);
-            margin-bottom: 2rem;
+            margin-bottom: 1.75rem;
         }
 
         .tab-btn {
             background: transparent;
             border: none;
             color: var(--text-secondary);
-            font-size: 1rem;
+            font-size: 0.95rem;
             font-weight: 600;
-            padding: 0.75rem 1.5rem;
+            padding: 0.75rem 1.25rem;
             cursor: pointer;
             border-bottom: 2px solid transparent;
             transition: all 0.2s ease;
@@ -127,14 +164,14 @@
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 12px;
-            padding: 1.75rem;
-            margin-bottom: 2rem;
+            padding: 1.5rem;
+            margin-bottom: 1.75rem;
         }
 
         .upload-zone {
             border: 2px dashed var(--border);
             border-radius: 8px;
-            padding: 2.5rem;
+            padding: 2.25rem;
             text-align: center;
             background: rgba(13, 17, 23, 0.4);
             cursor: pointer;
@@ -150,12 +187,12 @@
             background: #238636;
             color: white;
             border: 1px solid rgba(240, 246, 252, 0.1);
-            font-size: 1rem;
+            font-size: 0.95rem;
             font-weight: 600;
-            padding: 0.75rem 2rem;
+            padding: 0.7rem 1.75rem;
             border-radius: 6px;
             cursor: pointer;
-            margin-top: 1.25rem;
+            margin-top: 1rem;
             display: inline-flex;
             align-items: center;
             gap: 8px;
@@ -175,13 +212,14 @@
         /* Threat Banner */
         .threat-banner {
             border-radius: 8px;
-            padding: 1.25rem 1.75rem;
-            margin-bottom: 1.75rem;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1.5rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
             border-left: 6px solid;
             background: rgba(0, 0, 0, 0.25);
+            transition: all 0.3s;
         }
 
         .threat-banner.SAFE {
@@ -196,11 +234,16 @@
 
         .threat-banner.CRITICAL {
             border-color: var(--crit-color);
-            background: rgba(248, 81, 73, 0.15);
+            background: rgba(248, 81, 73, 0.18);
+        }
+
+        .threat-banner.UNKNOWN {
+            border-color: #8b949e;
+            background: rgba(139, 148, 158, 0.15);
         }
 
         .threat-level-tag {
-            font-size: 1.5rem;
+            font-size: 1.35rem;
             font-weight: 800;
             letter-spacing: 0.5px;
         }
@@ -208,33 +251,34 @@
         .threat-banner.SAFE .threat-level-tag { color: var(--safe-color); }
         .threat-banner.WARNING .threat-level-tag { color: var(--warn-color); }
         .threat-banner.CRITICAL .threat-level-tag { color: var(--crit-color); }
+        .threat-banner.UNKNOWN .threat-level-tag { color: #c9d1d9; }
 
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 1rem;
-            margin-bottom: 1.75rem;
+            margin-bottom: 1.5rem;
         }
 
         .metric-card {
             background: #0d1117;
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 1rem 1.25rem;
+            padding: 0.9rem 1.15rem;
         }
 
         .metric-card .label {
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             color: var(--text-secondary);
         }
 
         .metric-card .value {
-            font-size: 1.35rem;
+            font-size: 1.25rem;
             font-weight: 700;
             color: var(--text-primary);
-            margin-top: 4px;
+            margin-top: 3px;
         }
 
         /* 4-Panel Grid */
@@ -266,6 +310,7 @@
             font-weight: 600;
             display: flex;
             justify-content: space-between;
+            align-items: center;
         }
 
         .panel-box img, .panel-box video {
@@ -277,8 +322,8 @@
 
         .spinner {
             display: inline-block;
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
             border: 3px solid rgba(255,255,255,.3);
             border-radius: 50%;
             border-top-color: #fff;
@@ -298,9 +343,66 @@
             border: 1px solid #1f3a5f;
             border-radius: 6px;
             padding: 0.85rem 1.25rem;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             color: #8bb8e8;
             margin-top: 1.25rem;
+        }
+
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #f85149;
+            background: rgba(248, 81, 73, 0.15);
+            border: 1px solid rgba(248, 81, 73, 0.4);
+            padding: 3px 8px;
+            border-radius: 12px;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #f85149;
+            border-radius: 50%;
+            animation: pulse-red 1.5s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(248, 81, 73, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(248, 81, 73, 0); }
+        }
+
+        .cadence-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.72rem;
+            padding: 2px 7px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            background: #0d1117;
+            color: var(--text-secondary);
+        }
+
+        .cadence-badge.active {
+            border-color: #2ea043;
+            background: rgba(46, 160, 67, 0.15);
+            color: #3fb950;
+            font-weight: 600;
+        }
+
+        .network-banner {
+            background: #111a28;
+            border: 1px solid #1f3b60;
+            border-radius: 8px;
+            padding: 0.85rem 1.25rem;
+            margin-bottom: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
         }
     </style>
 </head>
@@ -310,12 +412,18 @@
     <div class="brand">
         <span class="logo-badge">WILDLIFE-COD</span>
         <div>
-            <div class="title">Camouflage-Aware Wildlife Detection & Threat Analysis</div>
-            <div class="subtitle">Final-Year Engineering Project — Unified 7-Stage Pipeline</div>
+            <div class="title">Camouflage Wildlife Detection & Threat Alert Dashboard</div>
+            <div class="subtitle">Unified 7-Stage Pipeline (U-Net &rarr; Flow &rarr; Fusion &rarr; YOLOv8 &rarr; DeepSORT &rarr; ZoeDepth &rarr; Threat Analysis)</div>
         </div>
     </div>
-    <div class="pipeline-badge">
-        U-Net &rarr; Flow &rarr; Fusion &rarr; YOLOv8 &rarr; DeepSORT &rarr; ZoeDepth &rarr; Threat Analysis
+    <div class="header-actions">
+        <button id="btn-audio-toggle" class="btn-audio" onclick="toggleAudio()">
+            <span id="audio-icon">🔊</span>
+            <span id="audio-label">Sound: On</span>
+        </button>
+        <a id="phone-quick-link" href="/phone" target="_blank" class="phone-link-btn">
+            <span>📱 Phone Camera Mode</span>
+        </a>
     </div>
 </header>
 
@@ -323,6 +431,7 @@
     <div class="tab-nav">
         <button class="tab-btn active" onclick="switchTab('image')">Image Analysis Mode</button>
         <button class="tab-btn" onclick="switchTab('video')">Video Sequence Mode</button>
+        <button class="tab-btn" onclick="switchTab('live')">Live Stream & Monitoring Dashboard</button>
     </div>
 
     <!-- ==================== IMAGE MODE ==================== -->
@@ -335,7 +444,7 @@
             <div class="upload-zone" onclick="document.getElementById('image-input').click()">
                 <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin: 0 auto 10px; color: #8b949e;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 <div id="image-file-name" style="font-weight: 600;">Click to select image or drag and drop</div>
-                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">Supports high-res wildlife images</div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">Supports high-resolution wildlife images</div>
                 <input type="file" id="image-input" accept="image/*" class="hidden" onchange="previewImage(this)">
             </div>
             <button id="image-analyze-btn" class="btn-analyze" onclick="analyzeImage()" disabled>
@@ -355,19 +464,19 @@
                     <div id="image-threat-reason" style="font-size: 0.85rem; margin-top: 4px; color: var(--text-secondary);">Reasoning</div>
                 </div>
                 <div style="text-align: right;">
-                    <div id="image-animal-name" style="font-size: 1.35rem; font-weight: 700;">Target: Animal</div>
-                    <div id="image-animal-conf" style="font-size: 0.9rem; color: var(--text-secondary);">Confidence: 0%</div>
+                    <div id="image-animal-name" style="font-size: 1.35rem; font-weight: 700;">Detected Animal: None</div>
+                    <div id="image-animal-conf" style="font-size: 0.9rem; color: var(--text-secondary);">Confidence: LOW</div>
                 </div>
             </div>
 
             <!-- Key Scientific Metrics Grid -->
             <div class="metrics-grid">
                 <div class="metric-card">
-                    <div class="label">Target Wildlife</div>
+                    <div class="label">Detected Animal</div>
                     <div id="card-animal" class="value">—</div>
                 </div>
                 <div class="metric-card">
-                    <div class="label">YOLOv8 Detection Confidence</div>
+                    <div class="label">Detection Confidence</div>
                     <div id="card-conf" class="value">—</div>
                 </div>
                 <div class="metric-card">
@@ -393,7 +502,7 @@
                 <div class="panel-box">
                     <div class="panel-header">
                         <span>2. U-Net Camouflage Segmentation Mask</span>
-                        <span style="color: var(--accent);">Stage 1 (Member 1)</span>
+                        <span id="badge-unet-status" style="color: var(--safe-color); font-weight: 700;">AVAILABLE</span>
                     </div>
                     <img id="view-mask" src="" alt="U-Net Mask">
                 </div>
@@ -401,7 +510,7 @@
                 <div class="panel-box">
                     <div class="panel-header">
                         <span>3. Enhanced Frame & YOLOv8 Wildlife Detection</span>
-                        <span style="color: #58a6ff;">Stage 3 & 4</span>
+                        <span id="badge-yolo-status" style="color: #58a6ff;">Stage 3 & 4</span>
                     </div>
                     <img id="view-enhanced" src="" alt="Enhanced Detection">
                 </div>
@@ -416,7 +525,7 @@
             </div>
 
             <div class="notice-box">
-                <strong>Current Review Limitation Notice:</strong> Depth estimation is generated via ZoeDepth for structural scene awareness. Calibrated metric distance calculation is reserved for calibrated camera deployments and is explicitly not used to force an unvalidated distance number.
+                <strong>Honesty Notice:</strong> Depth estimation is generated via ZoeDepth for structural relative depth awareness (Near / Medium / Far). Calibrated metric distance calculation is reserved for calibrated camera deployments and is explicitly not used as an artificial distance number.
             </div>
         </div>
     </div>
@@ -482,36 +591,254 @@
             </div>
         </div>
     </div>
+
+    <!-- ==================== LIVE MONITORING DASHBOARD (PHASE 6) ==================== -->
+    <div id="live-tab" class="hidden">
+        <!-- Wi-Fi Phone Connection Pairing Banner -->
+        <div class="network-banner">
+            <div>
+                <strong style="color: #fff; font-size: 0.95rem;">📱 Mobile Phone Camera Setup (Wi-Fi LAN)</strong>
+                <div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;">
+                    Open this URL on your phone's browser to stream video to the laptop GPU:
+                    <code id="phone-stream-url" style="color: #58a6ff; font-weight: 700; margin-left: 4px;">Loading connection info...</code>
+                </div>
+            </div>
+            <div>
+                <a id="phone-launch-link" href="/phone" target="_blank" class="phone-link-btn" style="background: #238636; border-color: #2ea043; color: #fff;">
+                    Open Phone Page &rarr;
+                </a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div>
+                    <h3>Live Wildlife Detection & Threat Alert Monitor</h3>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 2px;">
+                        Laptop GPU processes frames via canonical 7-stage engine. Displays live video, Kalman tracks, and triggers audio alerts.
+                    </p>
+                </div>
+                <div id="live-stream-badge" class="live-indicator hidden">
+                    <span class="live-dot"></span>
+                    <span id="live-stream-badge-text">STREAM ACTIVE</span>
+                </div>
+            </div>
+
+            <!-- Stream Source Selector & Controls -->
+            <div style="margin-top: 1.25rem; display: flex; flex-wrap: wrap; align-items: center; gap: 15px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label for="stream-source-select" style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">Stream Source:</label>
+                    <select id="stream-source-select" onchange="onStreamSourceChange()" style="background: #0d1117; border: 1px solid var(--border); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem;">
+                        <option value="phone">📱 Mobile Phone Camera Stream</option>
+                        <option value="webcam">💻 Laptop Webcam Device</option>
+                    </select>
+                </div>
+
+                <!-- Laptop Webcam Controls -->
+                <div id="webcam-controls-row" class="hidden" style="display: flex; align-items: center; gap: 10px;">
+                    <select id="webcam-device-select" style="background: #0d1117; border: 1px solid var(--border); color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem;">
+                        <option value="0">Camera 0 (Default)</option>
+                    </select>
+                    <button class="btn-analyze" style="margin-top: 0; padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="startWebcam()">Start Camera</button>
+                    <button id="btn-webcam-stop" class="btn-analyze hidden" style="margin-top: 0; padding: 0.5rem 1rem; font-size: 0.85rem; background: #da3633;" onclick="stopWebcam()">Stop Camera</button>
+                </div>
+
+                <div id="stream-status-label" style="font-size: 0.85rem; color: var(--text-secondary);">
+                    Select Phone Camera or Laptop Webcam to monitor live feed.
+                </div>
+            </div>
+
+            <!-- Inference Cadence Indicators -->
+            <div style="margin-top: 1rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.5px;">Pipeline Cadence:</span>
+                <span id="badge-cad-unet" class="cadence-badge active">U-Net Camo (1:2)</span>
+                <span id="badge-cad-flow" class="cadence-badge active">Optical Flow (1:1)</span>
+                <span id="badge-cad-yolo" class="cadence-badge active">YOLOv8 Detection (1:3)</span>
+                <span id="badge-cad-track" class="cadence-badge active">DeepSORT Tracking (1:1)</span>
+                <span id="badge-cad-depth" class="cadence-badge active">ZoeDepth (1:5)</span>
+            </div>
+        </div>
+
+        <!-- Live Authoritative Threat Banner -->
+        <div id="live-threat-banner" class="threat-banner UNKNOWN">
+            <div>
+                <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;">Live Stream Threat Assessment</div>
+                <div id="live-threat-level" class="threat-level-tag">THREAT LEVEL: AWAITING STREAM</div>
+                <div id="live-threat-reason" style="font-size: 0.85rem; margin-top: 4px; color: var(--text-secondary);">Connect phone or start laptop webcam to initiate threat monitoring.</div>
+            </div>
+            <div style="text-align: right;">
+                <div id="live-target-name" style="font-size: 1.35rem; font-weight: 700;">Target: None</div>
+                <div id="live-target-score" style="font-size: 0.85rem; color: var(--text-secondary);">Score: N/A</div>
+            </div>
+        </div>
+
+        <!-- Real-Time Telemetry Grid -->
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="label">Inference Throughput</div>
+                <div id="metric-live-infer-fps" class="value">0.0 FPS</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Pipeline Latency</div>
+                <div id="metric-live-latency" class="value">0 ms</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">DeepSORT Active Tracks</div>
+                <div id="metric-live-tracks" class="value">0 Active</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Relative Depth</div>
+                <div id="metric-live-depth" class="value">—</div>
+            </div>
+            <div class="metric-card">
+                <div class="label">Stream Connection</div>
+                <div id="metric-live-conn" class="value">Idle</div>
+            </div>
+        </div>
+
+        <!-- Live Stream Video Viewer -->
+        <div class="panel-box" style="margin-bottom: 1.5rem;">
+            <div class="panel-header">
+                <span>Live Feed (Camouflage Contours + YOLOv8 Bounding Boxes + DeepSORT IDs + Threat HUD)</span>
+                <span id="live-feed-source-tag" style="color: var(--blue); font-size: 0.8rem;">Source: Phone Camera</span>
+            </div>
+            <div id="live-feed-container" style="position: relative; background: #000; min-height: 480px; display: flex; align-items: center; justify-content: center;">
+                <img id="live-stream-image" src="" alt="Live Video Feed" style="width: 100%; height: auto; display: none;">
+                <div id="live-feed-placeholder" style="text-align: center; padding: 4rem 2rem; color: var(--text-secondary);">
+                    <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin: 0 auto 12px; color: #484f58;">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                        <circle cx="12" cy="13" r="4"/>
+                    </svg>
+                    <div style="font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px;">Live Stream Offline</div>
+                    <div style="font-size: 0.85rem; max-width: 500px; margin: 0 auto;">
+                        To stream from your phone: open the link above on your phone and tap <strong>Start Stream</strong>.<br>
+                        To use this laptop's camera: switch Source to <strong>Laptop Webcam</strong> and tap <strong>Start Camera</strong>.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="notice-box">
+            <strong>System Safety & Distance Honesty:</strong> Depth estimation is generated via ZoeDepth for relative scene awareness (Near / Medium / Far). Uncalibrated metric distances are never fabricated. Audio alerts synthesize SAFE, WARNING, and CRITICAL tones locally via Web Audio API.
+        </div>
+    </div>
 </main>
 
 <script>
     let currentTab = 'image';
+    let livePollInterval = null;
+    let currentStreamSource = 'phone';
+    let audioContext = null;
+    let audioEnabled = true;
+    let lastPlayedSeverity = null;
+    let lastSoundTime = 0;
 
-    function switchTab(tab) {
-        currentTab = tab;
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        if (tab === 'image') {
-            document.querySelectorAll('.tab-btn')[0].classList.add('active');
-            document.getElementById('image-tab').classList.remove('hidden');
-            document.getElementById('video-tab').classList.add('hidden');
-        } else {
-            document.querySelectorAll('.tab-btn')[1].classList.add('active');
-            document.getElementById('image-tab').classList.add('hidden');
-            document.getElementById('video-tab').classList.remove('hidden');
+    // -------------------------------------------------------------
+    // Audio Alert Synthesizer (Phase 8: SAFE, WARNING, CRITICAL)
+    // -------------------------------------------------------------
+    function initAudio() {
+        if (!audioContext) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (AudioCtx) audioContext = new AudioCtx();
+        }
+        if (audioContext && audioContext.state === 'suspended') {
+            audioContext.resume();
         }
     }
 
+    function playTone(freq, type, duration, gainVal = 0.15, delay = 0) {
+        if (!audioEnabled || !audioContext) return;
+        setTimeout(() => {
+            try {
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioContext.currentTime);
+                gain.gain.setValueAtTime(gainVal, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+                osc.start();
+                osc.stop(audioContext.currentTime + duration);
+            } catch (e) {
+                console.warn('Audio tone error:', e);
+            }
+        }, delay * 1000);
+    }
+
+    function playThreatSound(severity) {
+        if (!audioEnabled) return;
+        initAudio();
+
+        const now = Date.now();
+        // Cooldown: 5 seconds between identical severity sounds
+        if (lastPlayedSeverity === severity && (now - lastSoundTime) < 5000) {
+            return;
+        }
+
+        lastPlayedSeverity = severity;
+        lastSoundTime = now;
+
+        if (severity === 'CRITICAL') {
+            // Urgent triple alarm (880Hz -> 988Hz -> 880Hz)
+            playTone(880, 'sawtooth', 0.15, 0.25, 0);
+            playTone(988, 'sawtooth', 0.15, 0.25, 0.16);
+            playTone(880, 'sawtooth', 0.25, 0.30, 0.32);
+        } else if (severity === 'WARNING') {
+            // Caution amber pulse (440Hz -> 587Hz)
+            playTone(440, 'triangle', 0.2, 0.20, 0);
+            playTone(587.33, 'triangle', 0.3, 0.20, 0.22);
+        } else if (severity === 'SAFE') {
+            // Short gentle confirmation chime (523Hz -> 659Hz)
+            playTone(523.25, 'sine', 0.18, 0.12, 0);
+            playTone(659.25, 'sine', 0.28, 0.12, 0.18);
+        }
+    }
+
+    function toggleAudio() {
+        initAudio();
+        audioEnabled = !audioEnabled;
+        document.getElementById('audio-icon').innerText = audioEnabled ? '🔊' : '🔇';
+        document.getElementById('audio-label').innerText = audioEnabled ? 'Sound: On' : 'Sound: Muted';
+        if (audioEnabled) {
+            playTone(600, 'sine', 0.1, 0.1);
+        }
+    }
+
+    // -------------------------------------------------------------
+    // Tab Navigation
+    // -------------------------------------------------------------
+    function switchTab(tab) {
+        currentTab = tab;
+        const btns = document.querySelectorAll('.tab-btn');
+        btns.forEach(btn => btn.classList.remove('active'));
+
+        document.getElementById('image-tab').classList.add('hidden');
+        document.getElementById('video-tab').classList.add('hidden');
+        document.getElementById('live-tab').classList.add('hidden');
+
+        if (tab === 'image') {
+            btns[0].classList.add('active');
+            document.getElementById('image-tab').classList.remove('hidden');
+            stopLiveMonitoring();
+        } else if (tab === 'video') {
+            btns[1].classList.add('active');
+            document.getElementById('video-tab').classList.remove('hidden');
+            stopLiveMonitoring();
+        } else if (tab === 'live') {
+            btns[2].classList.add('active');
+            document.getElementById('live-tab').classList.remove('hidden');
+            startLiveMonitoring();
+        }
+    }
+
+    // -------------------------------------------------------------
+    // Image Mode
+    // -------------------------------------------------------------
     function previewImage(input) {
         if (input.files && input.files[0]) {
             document.getElementById('image-file-name').innerText = input.files[0].name;
             document.getElementById('image-analyze-btn').disabled = false;
-        }
-    }
-
-    function previewVideo(input) {
-        if (input.files && input.files[0]) {
-            document.getElementById('video-file-name').innerText = input.files[0].name;
-            document.getElementById('video-analyze-btn').disabled = false;
         }
     }
 
@@ -539,18 +866,24 @@
                 return;
             }
 
-            // Display Results
             document.getElementById('image-results').classList.remove('hidden');
 
             const banner = document.getElementById('image-threat-banner');
-            banner.className = 'threat-banner ' + data.threat.threat_level;
+            let bannerClass = 'SAFE';
+            if (data.threat.threat_level.includes('CRITICAL')) bannerClass = 'CRITICAL';
+            else if (data.threat.threat_level.includes('WARNING')) bannerClass = 'WARNING';
+            else if (data.threat.threat_level.includes('UNKNOWN')) bannerClass = 'UNKNOWN';
+            banner.className = 'threat-banner ' + bannerClass;
+
             document.getElementById('image-threat-level').innerText = 'THREAT LEVEL: ' + data.threat.threat_level;
             document.getElementById('image-threat-reason').innerText = data.threat.reason;
-            document.getElementById('image-animal-name').innerText = 'Target: ' + data.threat.animal_class;
-            document.getElementById('image-animal-conf').innerText = 'Confidence: ' + (data.threat.confidence * 100).toFixed(1) + '%';
+            document.getElementById('image-animal-name').innerText = 'Detected Animal: ' + data.threat.animal_class;
+
+            const confStr = data.threat.confidence > 0 ? (data.threat.confidence * 100).toFixed(1) + '%' : 'LOW';
+            document.getElementById('image-animal-conf').innerText = 'Confidence: ' + confStr;
 
             document.getElementById('card-animal').innerText = data.threat.animal_class;
-            document.getElementById('card-conf').innerText = (data.threat.confidence * 100).toFixed(1) + '%';
+            document.getElementById('card-conf').innerText = data.threat.confidence > 0 ? confStr : 'NO RELIABLE DETECTION';
             document.getElementById('card-depth').innerText = data.threat.relative_depth;
             document.getElementById('card-latency').innerText = data.elapsed_ms.toFixed(0) + ' ms';
 
@@ -559,12 +892,25 @@
             document.getElementById('view-enhanced').src = data.paths.annotated + '?t=' + Date.now();
             document.getElementById('view-depth').src = data.paths.depth + '?t=' + Date.now();
 
+            // Play audio alert on result
+            playThreatSound(data.threat.threat_level.includes('CRITICAL') ? 'CRITICAL' : (data.threat.threat_level.includes('WARNING') ? 'WARNING' : 'SAFE'));
+
             banner.scrollIntoView({ behavior: 'smooth' });
         } catch (err) {
             alert('Request error: ' + err.message);
         } finally {
             btn.disabled = false;
             loader.classList.add('hidden');
+        }
+    }
+
+    // -------------------------------------------------------------
+    // Video Mode
+    // -------------------------------------------------------------
+    function previewVideo(input) {
+        if (input.files && input.files[0]) {
+            document.getElementById('video-file-name').innerText = input.files[0].name;
+            document.getElementById('video-analyze-btn').disabled = false;
         }
     }
 
@@ -597,10 +943,14 @@
             document.getElementById('video-results').classList.remove('hidden');
 
             const banner = document.getElementById('video-threat-banner');
-            const threatLevel = data.overall_threat ? data.overall_threat.threat_level : 'SAFE';
-            banner.className = 'threat-banner ' + threatLevel;
+            const threatLevel = data.overall_threat ? data.overall_threat.threat_level : 'UNKNOWN / LOW CONFIDENCE';
+            let bannerClass = 'SAFE';
+            if (threatLevel.includes('CRITICAL')) bannerClass = 'CRITICAL';
+            else if (threatLevel.includes('WARNING')) bannerClass = 'WARNING';
+            else if (threatLevel.includes('UNKNOWN')) bannerClass = 'UNKNOWN';
+            banner.className = 'threat-banner ' + bannerClass;
             document.getElementById('video-threat-level').innerText = 'THREAT LEVEL: ' + threatLevel;
-            document.getElementById('video-threat-reason').innerText = data.overall_threat ? data.overall_threat.reason : 'Sequence clear';
+            document.getElementById('video-threat-reason').innerText = data.overall_threat ? data.overall_threat.reason : 'No persistent targets identified';
             document.getElementById('video-summary-fps').innerText = 'Actual Offline FPS: ' + data.actual_fps.toFixed(1);
 
             const videoPlayer = document.getElementById('output-video-player');
@@ -619,6 +969,242 @@
             loader.classList.add('hidden');
         }
     }
+
+    // -------------------------------------------------------------
+    // Live Monitoring Dashboard (Phase 6, 7, 8)
+    // -------------------------------------------------------------
+    function onStreamSourceChange() {
+        const sel = document.getElementById('stream-source-select');
+        currentStreamSource = sel.value;
+
+        const webcamControls = document.getElementById('webcam-controls-row');
+        const sourceTag = document.getElementById('live-feed-source-tag');
+
+        if (currentStreamSource === 'webcam') {
+            webcamControls.classList.remove('hidden');
+            sourceTag.innerText = 'Source: Laptop Webcam';
+            refreshWebcamDevices();
+        } else {
+            webcamControls.classList.add('hidden');
+            sourceTag.innerText = 'Source: Phone Camera';
+        }
+
+        // Restart polling loop for selected source
+        startLiveMonitoring();
+    }
+
+    async function loadNetworkInfo() {
+        try {
+            const resp = await fetch('/api/network_info');
+            const data = await resp.json();
+            document.getElementById('phone-stream-url').innerText = data.phone_url;
+            document.getElementById('phone-quick-link').href = data.phone_url;
+            document.getElementById('phone-launch-link').href = data.phone_url;
+        } catch (e) {
+            console.warn('Network info query error:', e);
+        }
+    }
+
+    function startLiveMonitoring() {
+        initAudio();
+        loadNetworkInfo();
+
+        if (livePollInterval) clearInterval(livePollInterval);
+
+        const imgEl = document.getElementById('live-stream-image');
+        const placeholder = document.getElementById('live-feed-placeholder');
+
+        if (currentStreamSource === 'phone') {
+            imgEl.src = '/phone/feed?t=' + Date.now();
+            imgEl.style.display = 'block';
+            placeholder.style.display = 'none';
+            livePollInterval = setInterval(pollPhoneTelemetry, 350);
+        } else {
+            // Webcam source
+            livePollInterval = setInterval(pollWebcamTelemetry, 350);
+        }
+    }
+
+    function stopLiveMonitoring() {
+        if (livePollInterval) {
+            clearInterval(livePollInterval);
+            livePollInterval = null;
+        }
+    }
+
+    async function pollPhoneTelemetry() {
+        try {
+            const resp = await fetch('/phone/telemetry');
+            const data = await resp.json();
+
+            const badge = document.getElementById('live-stream-badge');
+            const badgeText = document.getElementById('live-stream-badge-text');
+            const statusLabel = document.getElementById('stream-status-label');
+            const connCard = document.getElementById('metric-live-conn');
+
+            if (data.is_active && !data.is_stale) {
+                badge.classList.remove('hidden');
+                badgeText.innerText = 'PHONE STREAM ACTIVE';
+                connCard.innerText = 'Connected';
+                connCard.style.color = '#3fb950';
+                statusLabel.innerText = 'Receiving live video frames from phone client (' + (data.client_ip || 'LAN') + ').';
+            } else if (data.is_active && data.is_stale) {
+                badge.classList.remove('hidden');
+                badgeText.innerText = 'PHONE STREAM STALE';
+                connCard.innerText = 'Stale / Paused';
+                connCard.style.color = '#d29922';
+                statusLabel.innerText = 'Phone camera stream is paused or disconnected (' + data.last_frame_age_s + 's ago).';
+            } else {
+                badge.classList.add('hidden');
+                connCard.innerText = 'Disconnected';
+                connCard.style.color = '#8b949e';
+                statusLabel.innerText = 'Open Phone Stream URL on your phone to transmit camera feed.';
+            }
+
+            document.getElementById('metric-live-infer-fps').innerText = data.fps.toFixed(1) + ' FPS';
+            document.getElementById('metric-live-latency').innerText = data.latency_ms.toFixed(0) + ' ms';
+
+            // Render analysis if available
+            if (data.analysis && data.analysis.threat) {
+                renderLiveAnalysis(data.analysis);
+            }
+        } catch (e) {
+            console.warn('Phone telemetry poll error:', e);
+        }
+    }
+
+    async function pollWebcamTelemetry() {
+        try {
+            const resp = await fetch('/webcam/status');
+            const data = await resp.json();
+
+            const badge = document.getElementById('live-stream-badge');
+            const badgeText = document.getElementById('live-stream-badge-text');
+            const connCard = document.getElementById('metric-live-conn');
+
+            if (data.is_running) {
+                badge.classList.remove('hidden');
+                badgeText.innerText = 'WEBCAM ACTIVE';
+                connCard.innerText = 'Active (Webcam)';
+                connCard.style.color = '#3fb950';
+
+                document.getElementById('metric-live-infer-fps').innerText = data.inference_fps.toFixed(1) + ' FPS';
+                document.getElementById('metric-live-latency').innerText = data.latency_ms.toFixed(0) + ' ms';
+                document.getElementById('metric-live-tracks').innerText = data.tracked_count + ' Active';
+                document.getElementById('metric-live-depth').innerText = data.threat ? data.threat.relative_depth : 'N/A';
+
+                if (data.threat) {
+                    renderLiveAnalysis({ threat: data.threat, tracked_objects: [] });
+                }
+            } else {
+                badge.classList.add('hidden');
+                connCard.innerText = 'Idle';
+                connCard.style.color = '#8b949e';
+            }
+        } catch (e) {
+            console.warn('Webcam telemetry poll error:', e);
+        }
+    }
+
+    function renderLiveAnalysis(payload) {
+        const threat = payload.threat;
+        if (!threat) return;
+
+        const banner = document.getElementById('live-threat-banner');
+        let bannerClass = 'SAFE';
+        if (threat.threat_level.includes('CRITICAL')) bannerClass = 'CRITICAL';
+        else if (threat.threat_level.includes('WARNING')) bannerClass = 'WARNING';
+        else if (threat.threat_level.includes('UNKNOWN')) bannerClass = 'UNKNOWN';
+        banner.className = 'threat-banner ' + bannerClass;
+
+        document.getElementById('live-threat-level').innerText = 'THREAT LEVEL: ' + threat.threat_level;
+        document.getElementById('live-threat-reason').innerText = threat.reason;
+        document.getElementById('live-target-name').innerText = 'Target: ' + threat.animal_class;
+        document.getElementById('live-target-score').innerText = 'Score: ' + threat.confidence_display;
+
+        document.getElementById('metric-live-depth').innerText = threat.relative_depth;
+        const tracksCount = payload.tracked_objects ? payload.tracked_objects.length : 0;
+        document.getElementById('metric-live-tracks').innerText = tracksCount + ' Active';
+
+        // Play audio alert on laptop dashboard if transition triggers it
+        if (threat.threat_level.includes('CRITICAL')) {
+            playThreatSound('CRITICAL');
+        } else if (threat.threat_level.includes('WARNING')) {
+            playThreatSound('WARNING');
+        }
+    }
+
+    // -------------------------------------------------------------
+    // Webcam Controls
+    // -------------------------------------------------------------
+    async function refreshWebcamDevices() {
+        try {
+            const resp = await fetch('/webcam/devices');
+            const data = await resp.json();
+            const sel = document.getElementById('webcam-device-select');
+            sel.innerHTML = '';
+            if (data.devices && data.devices.length > 0) {
+                data.devices.forEach(idx => {
+                    const opt = document.createElement('option');
+                    opt.value = idx;
+                    opt.textContent = `Camera ${idx}${idx === 0 ? ' (Default)' : ''}`;
+                    sel.appendChild(opt);
+                });
+            } else {
+                const opt = document.createElement('option');
+                opt.value = 0;
+                opt.textContent = 'Camera 0 (Default)';
+                sel.appendChild(opt);
+            }
+        } catch (err) {
+            console.warn('Webcam devices poll error:', err);
+        }
+    }
+
+    async function startWebcam() {
+        initAudio();
+        const sel = document.getElementById('webcam-device-select');
+        const cameraIndex = sel ? parseInt(sel.value || 0) : 0;
+
+        try {
+            const resp = await fetch('/webcam/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ camera_index: cameraIndex })
+            });
+            const data = await resp.json();
+            if (!resp.ok) {
+                alert('Webcam Error: ' + (data.message || 'Failed to start webcam'));
+                return;
+            }
+
+            document.getElementById('btn-webcam-stop').classList.remove('hidden');
+            const imgEl = document.getElementById('live-stream-image');
+            const placeholder = document.getElementById('live-feed-placeholder');
+            imgEl.src = '/webcam/stream?t=' + Date.now();
+            imgEl.style.display = 'block';
+            placeholder.style.display = 'none';
+
+        } catch (err) {
+            alert('Webcam start error: ' + err.message);
+        }
+    }
+
+    async function stopWebcam() {
+        try {
+            await fetch('/webcam/stop', { method: 'POST' });
+        } catch (e) {}
+
+        document.getElementById('btn-webcam-stop').classList.add('hidden');
+        const imgEl = document.getElementById('live-stream-image');
+        const placeholder = document.getElementById('live-feed-placeholder');
+        imgEl.src = '';
+        imgEl.style.display = 'none';
+        placeholder.style.display = 'block';
+    }
+
+    // Initial load
+    loadNetworkInfo();
 </script>
 </body>
 </html>

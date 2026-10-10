@@ -66,6 +66,9 @@ outputs/*.png
 outputs/*.csv
 outputs/*.json
 outputs/*.txt
+outputs/*.mp4
+outputs/*.avi
+outputs/*.mkv
 
 # ============================================================
 # TensorBoard Logs
@@ -94,14 +97,20 @@ New folder/
 *.sublime-workspace
 
 # ============================================================
-# Environment / Secrets
+# Environment / Secrets / Certificates
 # ============================================================
 .env
 *.env
+certs/
+*.pem
+*.key
+*.crt
 
 # ============================================================
-# Miscellaneous
+# Miscellaneous / Local Backups
 # ============================================================
 *.log
 *.tmp
 *.bak
+config_backup*.py
+config_optimized*.py

@@ -82,7 +82,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as _F
 
-
 class _DoubleConv(nn.Module):
     def __init__(self, in_ch, out_ch, dropout_p=0.0):
         super().__init__()

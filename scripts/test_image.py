@@ -30,16 +30,17 @@ def main():
     results = pipeline.process_image(args.image, save_dir=args.output_dir)
 
     threat = results["threat_result"]
+    conf_text = f"{threat.confidence * 100:.1f}%" if threat.confidence > 0 else "LOW"
     print("\n" + "=" * 55)
     print(f"       THREAT LEVEL: {threat.threat_level}")
     print("=" * 55)
-    print(f"Target:       {threat.animal_class}")
-    print(f"Confidence:   {threat.confidence * 100:.1f}%")
-    print(f"Motion:       {threat.motion_level}")
-    print(f"Depth Status: {threat.relative_depth}")
-    print(f"Note:         {threat.depth_note}")
-    print(f"Reasoning:    {threat.reason}")
-    print(f"Latency:      {results['elapsed_ms']:.0f} ms")
+    print(f"Detected Animal: {threat.animal_class}")
+    print(f"Confidence:      {conf_text}")
+    print(f"Motion:          {threat.motion_level}")
+    print(f"Depth Status:    {threat.relative_depth}")
+    print(f"Note:            {threat.depth_note}")
+    print(f"Reasoning:       {threat.reason}")
+    print(f"Latency:         {results['elapsed_ms']:.0f} ms")
     print("=" * 55)
     print(f"Saved outputs to: {args.output_dir}/\n")
 
